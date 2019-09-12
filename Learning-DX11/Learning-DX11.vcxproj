@@ -154,6 +154,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Learning-DX11.cpp" />
+    <ClCompile Include="src\getting_started\hello_triangle\HelloTriangleV2.cpp" />
     <ClCompile Include="src\getting_started\hello_triangle\hello_triangle.cpp" />
     <ClCompile Include="src\window_nonblocking_msg_loop.cpp" />
     <ClCompile Include="stdafx.cpp">
