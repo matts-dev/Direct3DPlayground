@@ -37,9 +37,6 @@
 //only the small 3-line main method at the bottom needs to be commented out. 
 namespace
 {
-	//forward declarations
-	void gameLoop();
-
 	HWND ghMainWnd = 0;				//global handle to the main window of this application; applications can have multiple windows
 	int gWidth = 500;
 	int gHeight = 500;
@@ -98,7 +95,7 @@ namespace
 			L"DirectX Window",				//window name
 			WS_OVERLAPPEDWINDOW,			//a combination of bitflags to give basic window behavior (minimize, maximize, sysmenu, etc.)
 			CW_USEDEFAULT, CW_USEDEFAULT,	//the x,y position of top-left corner relative to the screen; positive y runs downward
-			gWidth, gHeight,					//the width/height of window in pixels
+			gWidth, gHeight,				//the width/height of window in pixels
 			0, 0,							//parent and menu windows; should be null for our purposes
 			hInstance,						//handle to the application instance
 			0								//extra info available to the WM_Create event message
@@ -474,8 +471,8 @@ namespace
 }
 
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
-{
-	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
-}
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
+//{
+//	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
+//}
 
