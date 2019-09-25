@@ -44,10 +44,10 @@
     <ClCompile Include="src\getting_started\hello_triangle\hello_triangle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\getting_started\hello_triangle\HelloTriangleV2.cpp">
+    <ClCompile Include="src\getting_started\hello_triangle\hello_triangle_errorchecking.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\getting_started\hello_triangle\hello_triangle_errorchecking.cpp">
+    <ClCompile Include="src\getting_started\hello_triangle\hello_indexed_triangle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -314,12 +314,20 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			float x, y, z;
 			float r, g, b;
 		};
+
+		//   0
+		//  2 1
+		// 5 4 3
 		MyVertex vertices[] =
 		{
 			//x		y		z				r		g		b
-			{0.5f,	0.5f,	 0.f,			0.f,	1.f,	0.f},
-			{0.f,	-0.5f,	 0.f,			1.f,	0.f,	0.f},
-			{-0.5f,	0.5f,	 0.f,			0.f,	0.f,	1.f}
+			{0.f,	0.5f,	 0.f,			1.f,	875.f,	0.f},	//0
+			{0.25f,	0.0f,	 0.f,			1.f,	875.f,	0.f},	//1
+			{-0.25f,0.0f,	 0.f,			1.f,	875.f,	0.f},	//2
+
+			{0.5f,	-0.5f,	 0.f,			1.f,	875.f,	0.f},	//3
+			{0.0f,	-0.5f,	 0.f,			1.f,	875.f,	0.f},	//4
+			{-0.5f,	-0.5f,	 0.f,			1.f,	875.f,	0.f}	//5
 		};
 
 		D3D11_BUFFER_DESC vertexBuffer_desc = {}; //zero initialize the entire structure via c++value init
@@ -351,6 +359,38 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		);
 
 		////////////////////////////////////////////////////////
+		// Create index buffer
+		////////////////////////////////////////////////////////
+		uint32_t triangleIndices[] = {
+			0, 1, 2,
+			1, 3, 4,
+			2, 4, 5,
+		};
+		D3D11_BUFFER_DESC indexBufferDesc = {};
+		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		indexBufferDesc.ByteWidth = sizeof(triangleIndices);	//this will be sizeof(uint32_t) * 9; since this is an actual array and not pointer to an array
+		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		indexBufferDesc.CPUAccessFlags = 0u;
+		indexBufferDesc.MiscFlags = 0u;
+
+		D3D11_SUBRESOURCE_DATA indexData = {};
+		indexData.pSysMem = triangleIndices;
+
+		//create a buffer like we did for the index buffer!
+		ID3D11Buffer* pIndexBuffer = nullptr;
+		hr(pDevice->CreateBuffer(
+			&indexBufferDesc,	//const D3D11_BUFFER_DESC *pDesc,
+			&indexData,			//const D3D11_SUBRESOURCE_DATA *pInitialData,
+			&pIndexBuffer		//ID3D11Buffer **ppBuffer
+		));
+
+		pDeviceContext->IASetIndexBuffer(
+			pIndexBuffer,			//ID3D11Buffer *pIndexBuffer,
+			DXGI_FORMAT_R32_UINT,	//DXGI_FORMAT Format,
+			0u						//UINT Offset
+		);
+
+		////////////////////////////////////////////////////////
 		// Configuring the vertex shader input
 		////////////////////////////////////////////////////////
 		D3D11_INPUT_ELEMENT_DESC inputElementDesc[] =
@@ -363,7 +403,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			//																D3D11_INPUT_CLASSIFICATION InputSlotClass;
 			//																							UINT InstanceDataStepRate;
 			{"MY_POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,			D3D11_INPUT_PER_VERTEX_DATA, 0},
-			{"MY_COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 3*sizeof(float), D3D11_INPUT_PER_VERTEX_DATA, 0}
+			{"MY_COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 3 * sizeof(float), D3D11_INPUT_PER_VERTEX_DATA, 0}
 		};
 		ID3D11InputLayout* pInputLayout = nullptr;
 		hr(pDevice->CreateInputLayout(
@@ -373,7 +413,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			pVertShader_ByteCodeBlob->GetBufferSize(),		//SIZE_T BytecodeLength,
 			&pInputLayout									//ID3D11InputLayout **ppInputLayout
 		));
-		
+
 		pDeviceContext->IASetInputLayout(pInputLayout);
 		pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -409,13 +449,14 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				//In real applications we will be changing the objects currently bound to pipeline; let's rebind everything we need here to show what rendering a specified vertex buffer would look like
 				//we did this while creating, check out the first time we called these functions for the arguments
 				//pDeviceContext->IASetVertexBuffers(0, 1, &pVertexBuffer, &vertexStride, &vertexOffset);
+				//pDeviceContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0u);
 				//pDeviceContext->IASetInputLayout(pInputLayout);
 				//pDeviceContext->IASetPrimitiveTopology(/*D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST*/ D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
 				//pDeviceContext->VSSetShader(pVertShader, nullptr, 0);
 				//pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 				//pDeviceContext->RSSetViewports(1, &viewport);
 
-				pDeviceContext->Draw(3, 0);
+				pDeviceContext->DrawIndexed(9, 0, 0);
 
 				pSwapChain->Present(0, 0);
 			}
@@ -430,12 +471,13 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		if (pSwapChain) pSwapChain->Release();
 		if (pDevice) pDevice->Release();
 		if (pDeviceContext) pDeviceContext->Release();
-		if (pRenderTargetView) pRenderTargetView->Release(); 
+		if (pRenderTargetView) pRenderTargetView->Release();
 		if (pVertShader_ByteCodeBlob) pVertShader_ByteCodeBlob->Release();
 		if (pVertShader) pVertShader->Release();
 		if (pPixelShader_ByteCodeBlob) pPixelShader_ByteCodeBlob->Release();
 		if (pPixelShader) pPixelShader->Release();
 		if (pVertexBuffer) pVertexBuffer->Release();
+		if (pIndexBuffer) pIndexBuffer->Release();
 		if (pInputLayout) pInputLayout->Release();
 
 		return 0;
@@ -443,7 +485,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 }
 
-//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
-//{
-//	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
-//}
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
+{
+	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
+}

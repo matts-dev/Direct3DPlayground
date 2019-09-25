@@ -120,7 +120,7 @@ namespace
 		AllocConsole();
 		freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
 		freopen_s((FILE**)stderr, "CONOUT$", "w", stderr);
-		std::cout << " redirected stdout test" << std::endl;
+		std::cout << " redirected stdout test" << hPrevInstance << pCmdLine << std::endl;
 		std::cerr << " redirected stderr test" << std::endl;
 
 		RECT windowRect;
@@ -402,7 +402,7 @@ namespace
 
 		pDeviceContext->IASetInputLayout(pVertLayout);
 		pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		//pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP); //good for debugging to see where your vertices are
+		//pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP); //good for debugging to see where your vertices are; need to set before present
 
 		D3D11_VIEWPORT viewport = {};
 		viewport.TopLeftX = 0;
