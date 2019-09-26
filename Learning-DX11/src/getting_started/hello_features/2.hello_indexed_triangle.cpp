@@ -485,7 +485,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
-{
-	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
-}
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
+//{
+//	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
+//}

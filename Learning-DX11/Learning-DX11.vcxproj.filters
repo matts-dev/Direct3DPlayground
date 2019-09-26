@@ -41,13 +41,16 @@
     <ClCompile Include="src\window_nonblocking_msg_loop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\getting_started\hello_triangle\hello_triangle.cpp">
+    <ClCompile Include="src\getting_started\hello_features\0.hello_triangle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\getting_started\hello_triangle\hello_triangle_errorchecking.cpp">
+    <ClCompile Include="src\getting_started\hello_features\1.hello_triangle_errorchecking.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\getting_started\hello_triangle\hello_indexed_triangle.cpp">
+    <ClCompile Include="src\getting_started\hello_features\2.hello_indexed_triangle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\getting_started\hello_features\3.hello_constant_buffers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
