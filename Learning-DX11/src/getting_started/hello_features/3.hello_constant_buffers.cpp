@@ -17,6 +17,7 @@
 #include<iostream>
 #include<cstdio>
 #include<cstdint>
+#include<ctime>
 
 
 namespace	//anonymous namespace makes everything within it essentially static.
@@ -235,13 +236,23 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 		const char* const pixelShaderHSLS = R"(
 			
+			cbuffer ConstantBuffer_PerObject_CPUUpdate
+			{
+				float time;
+			};
+
 			float4 main_pixel(
 					float4 position:SV_POSITION,	//we can just specify the semantics, we don't need to redefine the output struct
 					float4 color:MY_COLOR			//
 				) 
 				: SV_TARGET	// SV_TARGET is a semantic; return value semantics follow for the function signature.
 			{
-				return color;
+				float4 outColor = color;
+
+				outColor.b = sin(time);
+				//outColor.b = time;
+
+				return outColor;
 			}
 		)";
 
@@ -457,14 +468,14 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		constantBufferDesc.ByteWidth = sizeof(ConstantBuffer_PerObject);
 		constantBufferDesc.CPUAccessFlags = 0u;
 		constantBufferDesc.MiscFlags = 0u;
-		constantBufferDesc.Usage = D3D11_USAGE_DEFAULT; 			//setting to dynamic allows 
+		constantBufferDesc.Usage = D3D11_USAGE_DEFAULT; //note: typically you will set this to dynamic (see pixel shader example below)
 
 		//D3D11_SUBRESOURCE_DATA cbObjectData = {};
 		//cbObjectData.pSysMem = &cbObject;
 
 		hr(pDevice->CreateBuffer(
 			&constantBufferDesc,		//const D3D11_BUFFER_DESC *pDesc,
-			nullptr,//&cbObjectData,				//const D3D11_SUBRESOURCE_DATA *pInitialData,
+			nullptr,//&cbObjectData,	//const D3D11_SUBRESOURCE_DATA *pInitialData,
 			&pConstantBuffer	//ID3D11Buffer **ppBuffer
 		));
 
@@ -484,9 +495,50 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			&pConstantBuffer	//ID3D11Buffer *const *ppConstantBuffers
 		);
 
-		//#todo dynamic constant buffer?
+		////////////////////////////////////////////////////////
+		// (USAGE_DYNAMIC) Constant Buffers
+		////////////////////////////////////////////////////////
+
+		time_t startTimeSecs = std::time(nullptr);
+
+		// error without padding: 
+		//ConstantBuffers, marked with the D3D11_BIND_CONSTANT_BUFFER BindFlag, the ByteWidth (value = 4) must be a multiple of 16.
+		struct ConstantBufferTime
+		{
+			float time;			//+4bytes
+			float padding[3];	//+12bytes
+		};
+		ConstantBufferTime cbPixelShaderData;
+		cbPixelShaderData.time = 1.0f;
+
+		ID3D11Buffer* pConstantBuffer_PixelShader;
+
+		D3D11_BUFFER_DESC cb_pixel_desc = {};
+		cb_pixel_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		cb_pixel_desc.ByteWidth = sizeof(ConstantBufferTime);
+		cb_pixel_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; //<-this gives the CPU permission to write to this buffer
+		cb_pixel_desc.Usage = D3D11_USAGE_DYNAMIC; //<-this signals to d3d that we're going to be updating this buffer frequently
+		cb_pixel_desc.MiscFlags = 0u;
+
+		D3D11_SUBRESOURCE_DATA cbtime_subdata = {};
+		cbtime_subdata.pSysMem = &cbPixelShaderData;
+
+		hr(pDevice->CreateBuffer(
+			&cb_pixel_desc,					//const D3D11_BUFFER_DESC *pDesc,
+			&cbtime_subdata,						//const D3D11_SUBRESOURCE_DATA *pInitialData,
+			&pConstantBuffer_PixelShader		//ID3D11Buffer **ppBuffer) = 0;
+		));
+		pDeviceContext->PSSetConstantBuffers(
+			0,									//UINT StartSlot,
+			1,									//UINT NumBuffers,
+			&pConstantBuffer_PixelShader	//ID3D11Buffer *const *ppConstantBuffers
+		);
+
 		//#todo remove color from vertices?
 		//#todo constant buffer to pixel shader?
+		//#todo rename things around constant buffer sent to pixel shader
+		//#todo update time to be smooth float and intuitive
+		//#todo write to constant buffer using map/unap
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Message Queue and Game Loop
@@ -517,6 +569,49 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				//pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 				//pDeviceContext->RSSetViewports(1, &viewport);
 
+				////////////////////////////////////////////////////////
+				// Update Constant Buffers
+				////////////////////////////////////////////////////////
+				time_t nowSecs = std::time(nullptr);
+				float runtimeSecs = static_cast<float>(nowSecs - startTimeSecs);
+
+				//update constant buffers the slower
+				//cbObject.color->r = ? ;
+				pDeviceContext->UpdateSubresource(
+					pConstantBuffer,	//ID3D11Resource *pDstResource,
+					0u,				//UINT DstSubresource,
+					nullptr,		//const D3D11_BOX *pDstBox,
+					&cbObject,		//const void *pSrcData,
+					0u,				//UINT SrcRowPitch,
+					0u				//UINT SrcDepthPitch
+				);
+
+
+				cbPixelShaderData.time = runtimeSecs;
+				//pDeviceContext->UpdateSubresource(
+				//	pConstantBuffer_PixelShader,//ID3D11Resource *pDstResource,
+				//	0u,					//UINT DstSubresource,
+				//	nullptr,			//const D3D11_BOX *pDstBox,
+				//	&cbPixelShaderData,	//const void *pSrcData,
+				//	0u,					//UINT SrcRowPitch,
+				//	0u					//UINT SrcDepthPitch
+				//);
+				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
+				pDeviceContext->Map(
+					pConstantBuffer_PixelShader,	//ID3D11Resource *pResource,
+					0u,								//UINT Subresource,
+					D3D11_MAP_WRITE_DISCARD,		//D3D11_MAP MapType,
+					0u,								//UINT MapFlags,
+					&mappedPixelCB					//D3D11_MAPPED_SUBRESOURCE *pMappedResource) = 0;
+				);
+
+				std::memcpy(mappedPixelCB.pData, &cbPixelShaderData, sizeof(ConstantBufferTime));
+
+				pDeviceContext->Unmap(
+					pConstantBuffer_PixelShader, //ID3D11Resource *pResource,
+					0u							  //UINT Subresource
+				);
+
 				pDeviceContext->DrawIndexed(9, 0, 0);
 
 				pSwapChain->Present(0, 0);
@@ -541,6 +636,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		if (pIndexBuffer) pIndexBuffer->Release();
 		if (pInputLayout) pInputLayout->Release();
 		if (pConstantBuffer) pConstantBuffer->Release();
+		if (pConstantBuffer_PixelShader) pConstantBuffer_PixelShader->Release();
 
 		return 0;
 	}
