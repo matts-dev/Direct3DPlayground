@@ -18,6 +18,7 @@
 #include<cstdio>
 #include<cstdint>
 #include<ctime>
+#include <chrono>
 
 
 namespace	//anonymous namespace makes everything within it essentially static.
@@ -249,8 +250,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			{
 				float4 outColor = color;
 
-				outColor.b = sin(time);
-				//outColor.b = time;
+				outColor.b = abs(sin(time));
 
 				return outColor;
 			}
@@ -499,7 +499,9 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		// (USAGE_DYNAMIC) Constant Buffers
 		////////////////////////////////////////////////////////
 
-		time_t startTimeSecs = std::time(nullptr);
+		//time_t startTimeSecs = std::time(nullptr);
+		//clock_t startTimeSecs = std::clock();
+		auto startTimePoint= std::chrono::high_resolution_clock::now();
 
 		// error without padding: 
 		//ConstantBuffers, marked with the D3D11_BIND_CONSTANT_BUFFER BindFlag, the ByteWidth (value = 4) must be a multiple of 16.
@@ -535,10 +537,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		);
 
 		//#todo remove color from vertices?
-		//#todo constant buffer to pixel shader?
 		//#todo rename things around constant buffer sent to pixel shader
-		//#todo update time to be smooth float and intuitive
-		//#todo write to constant buffer using map/unap
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Message Queue and Game Loop
@@ -572,8 +571,12 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				////////////////////////////////////////////////////////
 				// Update Constant Buffers
 				////////////////////////////////////////////////////////
-				time_t nowSecs = std::time(nullptr);
-				float runtimeSecs = static_cast<float>(nowSecs - startTimeSecs);
+				//time_t nowSecs = std::time(nullptr);
+				//clock_t nowSecs = std::clock();
+				//float runtimeSecs = static_cast<float>(nowSecs - startTimeSecs);
+
+				auto nowTimePoint = std::chrono::high_resolution_clock::now();
+				float runtimeSecs = std::chrono::duration<float>(nowTimePoint - startTimePoint).count();
 
 				//update constant buffers the slower
 				//cbObject.color->r = ? ;
@@ -588,14 +591,6 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 
 				cbPixelShaderData.time = runtimeSecs;
-				//pDeviceContext->UpdateSubresource(
-				//	pConstantBuffer_PixelShader,//ID3D11Resource *pDstResource,
-				//	0u,					//UINT DstSubresource,
-				//	nullptr,			//const D3D11_BOX *pDstBox,
-				//	&cbPixelShaderData,	//const void *pSrcData,
-				//	0u,					//UINT SrcRowPitch,
-				//	0u					//UINT SrcDepthPitch
-				//);
 				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
 				pDeviceContext->Map(
 					pConstantBuffer_PixelShader,	//ID3D11Resource *pResource,
@@ -605,7 +600,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 					&mappedPixelCB					//D3D11_MAPPED_SUBRESOURCE *pMappedResource) = 0;
 				);
 
-				std::memcpy(mappedPixelCB.pData, &cbPixelShaderData, sizeof(ConstantBufferTime));
+				std::memcpy(mappedPixelCB.pData, &cbPixelShaderData, sizeof(ConstantBufferTime)); //copy to pData from our struct
 
 				pDeviceContext->Unmap(
 					pConstantBuffer_PixelShader, //ID3D11Resource *pResource,
