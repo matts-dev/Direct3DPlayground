@@ -332,13 +332,13 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		MyVertex vertices[] =
 		{
 			//x		y		z				
-			{0.f,	0.5f,	 0.f,},			
-			{0.25f,	0.0f,	 0.f,},			
-			{-0.25f,0.0f,	 0.f,},			
+			{0.f,	0.5f,	 0.f,},
+			{0.25f,	0.0f,	 0.f,},
+			{-0.25f,0.0f,	 0.f,},
 
-			{0.5f,	-0.5f,	 0.f,},			
-			{0.0f,	-0.5f,	 0.f,},			
-			{-0.5f,	-0.5f,	 0.f,}		
+			{0.5f,	-0.5f,	 0.f,},
+			{0.0f,	-0.5f,	 0.f,},
+			{-0.5f,	-0.5f,	 0.f,}
 		};
 
 		D3D11_BUFFER_DESC vertexBuffer_desc = {}; //zero initialize the entire structure via c++value init
@@ -459,7 +459,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		cbObject.color[0] = 1.0;
 		cbObject.color[1] = 0.0;
 		cbObject.color[2] = 0.0;
-		
+
 		D3D11_BUFFER_DESC constantBufferDesc = {};
 		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		constantBufferDesc.ByteWidth = sizeof(ConstantBuffer_PerObject);
@@ -496,40 +496,38 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		// (USAGE_DYNAMIC) Constant Buffers
 		////////////////////////////////////////////////////////
 
-		auto startTimePoint= std::chrono::high_resolution_clock::now();
+		auto startTimePoint = std::chrono::high_resolution_clock::now();
 
 		// error without padding: 
 		//ConstantBuffers, marked with the D3D11_BIND_CONSTANT_BUFFER BindFlag, the ByteWidth (value = 4) must be a multiple of 16.
 		struct ConstantBufferTime
 		{
+			float offset[3];	//+12bytes
 			float time;			//+4bytes
-			float padding[3];	//+12bytes
+			float dir[3];		//+12bytes
+			float padding;		//+4bytes
 		};
-		ConstantBufferTime cbPixelShaderData;
-		cbPixelShaderData.time = 1.0f;
+		ConstantBufferTime cb_PerObject = {};
+		cb_PerObject.time = 1.0f;
 
 		ID3D11Buffer* pConstantBuffer_PixelShader;
 
-		D3D11_BUFFER_DESC cb_pixel_desc = {};
-		cb_pixel_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		cb_pixel_desc.ByteWidth = sizeof(ConstantBufferTime);
-		cb_pixel_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; //<-this gives the CPU permission to write to this buffer
-		cb_pixel_desc.Usage = D3D11_USAGE_DYNAMIC; //<-this signals to d3d that we're going to be updating this buffer frequently
-		cb_pixel_desc.MiscFlags = 0u;
+		D3D11_BUFFER_DESC cbPerObjectDesc = {};
+		cbPerObjectDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		cbPerObjectDesc.ByteWidth = sizeof(ConstantBufferTime);
+		cbPerObjectDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; //<-this gives the CPU permission to write to this buffer
+		cbPerObjectDesc.Usage = D3D11_USAGE_DYNAMIC; //<-this signals to d3d that we're going to be updating this buffer frequently
+		cbPerObjectDesc.MiscFlags = 0u;
 
 		D3D11_SUBRESOURCE_DATA cbtime_subdata = {};
-		cbtime_subdata.pSysMem = &cbPixelShaderData;
+		cbtime_subdata.pSysMem = &cb_PerObject;
 
 		hr(pDevice->CreateBuffer(
-			&cb_pixel_desc,					//const D3D11_BUFFER_DESC *pDesc,
-			&cbtime_subdata,						//const D3D11_SUBRESOURCE_DATA *pInitialData,
+			&cbPerObjectDesc,					//const D3D11_BUFFER_DESC *pDesc,
+			&cbtime_subdata,					//const D3D11_SUBRESOURCE_DATA *pInitialData,
 			&pConstantBuffer_PixelShader		//ID3D11Buffer **ppBuffer) = 0;
 		));
-		pDeviceContext->PSSetConstantBuffers(
-			0,									//UINT StartSlot,
-			1,									//UINT NumBuffers,
-			&pConstantBuffer_PixelShader	//ID3D11Buffer *const *ppConstantBuffers
-		);
+		pDeviceContext->PSSetConstantBuffers(/*StartSlot*/ 0, /*NumBuffers*/ 1, &pConstantBuffer_PixelShader);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Message Queue and Game Loop
@@ -567,35 +565,30 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				auto nowTimePoint = std::chrono::high_resolution_clock::now();
 				float runtimeSecs = std::chrono::duration<float>(nowTimePoint - startTimePoint).count();
 
-				//method 1: constant buffer update via UpdateSubresource
-				pDeviceContext->UpdateSubresource(
-					pConstantBuffer,//ID3D11Resource *pDstResource,
-					0u,				//UINT DstSubresource,
-					nullptr,		//const D3D11_BOX *pDstBox,
-					&cbObject,		//const void *pSrcData,
-					0u,				//UINT SrcRowPitch,
-					0u				//UINT SrcDepthPitch
-				);
-
 				//method 2: update constant buffer via Map() and Unmap()
-				cbPixelShaderData.time = runtimeSecs;
+				cb_PerObject.time = runtimeSecs;
+				cb_PerObject.offset[0] = 0.f;
+				cb_PerObject.offset[1] = 0.f;
+				cb_PerObject.offset[2] = 0.f;
+
+
 				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
-				pDeviceContext->Map(
-					pConstantBuffer_PixelShader,	//ID3D11Resource *pResource,
-					0u,								//UINT Subresource,
-					D3D11_MAP_WRITE_DISCARD,		//D3D11_MAP MapType,
-					0u,								//UINT MapFlags,
-					&mappedPixelCB					//D3D11_MAPPED_SUBRESOURCE *pMappedResource) = 0;
-				);
 
-				std::memcpy(mappedPixelCB.pData, &cbPixelShaderData, sizeof(ConstantBufferTime)); //copy to pData from our struct
+				//draw triangle moving horizontally
+				cb_PerObject.offset[0] = 0.f;
+				cb_PerObject.offset[1] = 0.5f;
+				cb_PerObject.offset[2] = 0.f;
+				cb_PerObject.dir[0] = 1.f;
+				cb_PerObject.dir[1] = 0.f;
+				cb_PerObject.dir[2] = 0.f;
+				pDeviceContext->Map(pConstantBuffer_PixelShader, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
+				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
+				pDeviceContext->Unmap(pConstantBuffer_PixelShader, 0u/*Subresource*/);
+				pDeviceContext->Draw(3, 0);
 
-				pDeviceContext->Unmap(
-					pConstantBuffer_PixelShader, //ID3D11Resource *pResource,
-					0u							  //UINT Subresource
-				);
+				//draw triangle moving vertically
 
-				pDeviceContext->DrawIndexed(9, 0, 0);
+				//draw triangle moving in depth
 
 				pSwapChain->Present(0, 0);
 			}
@@ -626,7 +619,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 }
 
-//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
-//{
-//	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
-//}
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
+{
+	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
+}

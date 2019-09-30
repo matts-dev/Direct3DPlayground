@@ -1,5 +1,4 @@
 
-hello markdown
 
 # Creating a window for Direct3D11 using the WindowsOS
 Admittedly, dealing with the old WindowsOS windowing system is my least favorite part about DirectX. It isn't really ally that bad, it just looks strange. I'm going run through it fairly quickly, only hitting on the relevant points. If you're curious and want more info, Microsoft has a plethora of doc pages. You can find them easily by googling "msdn thing-I-want-to-know-about". Now I've tried my best to break these concepts down, but the concepts are rather circular.
@@ -54,8 +53,7 @@ LRESULT CALLBACK WndProc_MessageHandler(
 The `WmdProc` return value depends on the message that is handled; most of time we `return 0` to signal everything went okay. `CALLBACK` is another calling convention (recall the `WINAPI` calling convetion?). [For the curious: it appears both `WINAPI` and `CALLBACK` are the same calling convention as they are macros defined as `__stdcall`]. Notice we create a switch around the `msg` event. When we handle the window message keydown (`WM_KEYDOWN`) we determine what key is pressed by `wParam` argument. The information provided in the `wParam` changes depending on the type of message being handled. What's in `lParam` also changes depending on the message. For example the `lParam` contains bits specifying a key's scanCode and repeat count for the `WM_KEYDOWN`, but for the `WM_MOUSEMOVE` the `lParam` contains the x and y position of the mouse bit-packed together.
 
 
-START HERE START HERE START HERE START HERE ^^^^^^^^^^^^^^^^^^
-
+START HERE START HERE START HERE START HERE ^^^^^^^^^^^^^^^^^^ tihs splled wrng. ^^^^^^^^^
 
 
 At a high level, you instruct your WindowsOS that you would like to create a window of a certain "class". This "class" isn't quite the same definition of class you see in traditional object oriented programming languages like c++, c#, or java. Instead we fill out a `struct WNDCLASS` Let's first preview the code before we talk about it.
