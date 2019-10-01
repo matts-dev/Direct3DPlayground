@@ -219,25 +219,34 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 			cbuffer ConstantBuffer_PerObject
 			{
-				float3 cbufferColor;
-			}
+				float3 offset;	
+				float time;			
+				float3 dir;		
+			};
 
 			vertexOutput main_vertex(
 					float3 position : MY_POSITION		//notice this is a float3, whereas the output is a float4
 				)
 			{
 				vertexOutput vs_out;
-				vs_out.position = float4(position, 1);
-				vs_out.color = float4(cbufferColor, 1);
+				vs_out.position = float4(position, 1) + float4(offset, 0); 
+
+				//use time to sway the vertices
+				float4 timeBasedOffset = (1.01 * sin(time)) * float4(dir, 0.f);
+				vs_out.position += timeBasedOffset;
+
+				vs_out.color = float4(0,0,0,1); //float4(cbufferColor, 1); //#TODO clean this up; delete
 				return vs_out;
 			}
 		)";
 
 		const char* const pixelShaderHSLS = R"(
 			
-			cbuffer ConstantBuffer_PerObject_CPUUpdate
+			cbuffer ConstantBuffer_PerObject
 			{
-				float time;
+				float3 offset;	
+				float time;			
+				float3 dir;		
 			};
 
 			float4 main_pixel(
@@ -248,7 +257,11 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			{
 				float4 outColor = color;
 
-				outColor.b = abs(sin(time));
+				float baseIntensity = 0.05;
+
+				outColor.r = sin(time) + baseIntensity;
+				outColor.g = baseIntensity;
+				outColor.b = -sin(time) + baseIntensity;
 
 				return outColor;
 			}
@@ -323,22 +336,14 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		struct MyVertex
 		{
 			float x, y, z;
-			float r, g, b;
 		};
 
-		//   0
-		//  2 1
-		// 5 4 3
 		MyVertex vertices[] =
 		{
 			//x		y		z				
-			{0.f,	0.5f,	 0.f,},
-			{0.25f,	0.0f,	 0.f,},
-			{-0.25f,0.0f,	 0.f,},
-
-			{0.5f,	-0.5f,	 0.f,},
-			{0.0f,	-0.5f,	 0.f,},
-			{-0.5f,	-0.5f,	 0.f,}
+			{0.f,	0.25f,	 0.f,},
+			{0.25f,	-0.25f,	 0.f,},
+			{-0.25f,-0.25f,	 0.f,}
 		};
 
 		D3D11_BUFFER_DESC vertexBuffer_desc = {}; //zero initialize the entire structure via c++value init
@@ -369,51 +374,21 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			&vertexOffset	//const UINT *pOffsets						//offset between first element and starting pointer want; pointer because this needs to accept an array if multiple bound
 		);
 
-		////////////////////////////////////////////////////////
-		// Create index buffer
-		////////////////////////////////////////////////////////
-		uint32_t triangleIndices[] = {
-			0, 1, 2,
-			1, 3, 4,
-			2, 4, 5,
-		};
-		D3D11_BUFFER_DESC indexBufferDesc = {};
-		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		indexBufferDesc.ByteWidth = sizeof(triangleIndices);	//this will be sizeof(uint32_t) * 9; since this is an actual array and not pointer to an array
-		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		indexBufferDesc.CPUAccessFlags = 0u;
-		indexBufferDesc.MiscFlags = 0u;
-
-		D3D11_SUBRESOURCE_DATA indexData = {};
-		indexData.pSysMem = triangleIndices;
-
-		//create a buffer like we did for the index buffer!
-		ID3D11Buffer* pIndexBuffer = nullptr;
-		hr(pDevice->CreateBuffer(
-			&indexBufferDesc,	//const D3D11_BUFFER_DESC *pDesc,
-			&indexData,			//const D3D11_SUBRESOURCE_DATA *pInitialData,
-			&pIndexBuffer		//ID3D11Buffer **ppBuffer
-		));
-
-		pDeviceContext->IASetIndexBuffer(
-			pIndexBuffer,			//ID3D11Buffer *pIndexBuffer,
-			DXGI_FORMAT_R32_UINT,	//DXGI_FORMAT Format,
-			0u						//UINT Offset
-		);
 
 		////////////////////////////////////////////////////////
 		// Configuring the vertex shader input
 		////////////////////////////////////////////////////////
 		D3D11_INPUT_ELEMENT_DESC inputElementDesc[] =
 		{
-			//LPCSTR SemanticName;
-			//				UINT SemanticIndex;
-			//					DXGI_FORMAT Format;
-			//												UINT InputSlot;
-			//			   									   UINT AlignedByteOffset;
-			//																D3D11_INPUT_CLASSIFICATION InputSlotClass;
-			//																							UINT InstanceDataStepRate;
-			{"MY_POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,			D3D11_INPUT_PER_VERTEX_DATA, 0}
+			{
+				"MY_POSITION",					//LPCSTR SemanticName;
+				0,								//UINT SemanticIndex;
+				DXGI_FORMAT_R32G32B32_FLOAT,	//DXGI_FORMAT Format;
+				0,								// UINT InputSlot;
+				0,								// UINT AlignedByteOffset;
+				D3D11_INPUT_PER_VERTEX_DATA,	//D3D11_INPUT_CLASSIFICATION InputSlotClass;
+				0								//UINT InstanceDataStepRate;
+			}
 		};
 		ID3D11InputLayout* pInputLayout = nullptr;
 		hr(pDevice->CreateInputLayout(
@@ -440,81 +415,30 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 		////////////////////////////////////////////////////////
 		// Constant buffers
-		//		it can be useful to separate constant buffers to be
-		//			per object
-		//			per frame (eg dynamic lights)
-		//			per scene (eg static lights)
-		//	Constant buffers are special packing rules; review the MSDN page for more specific details
-		//		-variables should NOT cross 16byte boundary lines
-		//		-individual variables will 
-		////////////////////////////////////////////////////////
-		ID3D11Buffer* pConstantBuffer = nullptr;
-
-		struct ConstantBuffer_PerObject
-		{
-			float color[3]; //12 bytes
-			float padding;	//4 bytes
-		};
-		ConstantBuffer_PerObject cbObject;
-		cbObject.color[0] = 1.0;
-		cbObject.color[1] = 0.0;
-		cbObject.color[2] = 0.0;
-
-		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		constantBufferDesc.ByteWidth = sizeof(ConstantBuffer_PerObject);
-		constantBufferDesc.CPUAccessFlags = 0u;
-		constantBufferDesc.MiscFlags = 0u;
-		constantBufferDesc.Usage = D3D11_USAGE_DEFAULT; //note: typically you will set this to dynamic (see pixel shader example below)
-
-		//D3D11_SUBRESOURCE_DATA cbObjectData = {};
-		//cbObjectData.pSysMem = &cbObject;
-
-		hr(pDevice->CreateBuffer(
-			&constantBufferDesc,		//const D3D11_BUFFER_DESC *pDesc,
-			nullptr,//&cbObjectData,	//const D3D11_SUBRESOURCE_DATA *pInitialData,
-			&pConstantBuffer	//ID3D11Buffer **ppBuffer
-		));
-
-		//update the constant buffer at runtime
-		pDeviceContext->UpdateSubresource(
-			pConstantBuffer,	//ID3D11Resource *pDstResource,
-			0u,				//UINT DstSubresource,
-			nullptr,		//const D3D11_BOX *pDstBox,
-			&cbObject,		//const void *pSrcData,
-			0u,				//UINT SrcRowPitch,
-			0u				//UINT SrcDepthPitch
-		);
-
-		pDeviceContext->VSSetConstantBuffers(
-			0,	//UINT StartSlot,
-			1,	//UINT NumBuffers,
-			&pConstantBuffer	//ID3D11Buffer *const *ppConstantBuffers
-		);
-
-		////////////////////////////////////////////////////////
-		// (USAGE_DYNAMIC) Constant Buffers
 		////////////////////////////////////////////////////////
 
 		auto startTimePoint = std::chrono::high_resolution_clock::now();
 
-		// error without padding: 
-		//ConstantBuffers, marked with the D3D11_BIND_CONSTANT_BUFFER BindFlag, the ByteWidth (value = 4) must be a multiple of 16.
-		struct ConstantBufferTime
+		struct MyVec3
+		{
+			float x, y, z; //12 bytes (3x4bytes)
+		};
+
+		struct ObjectConstantBuffer
 		{
 			float offset[3];	//+12bytes
 			float time;			//+4bytes
-			float dir[3];		//+12bytes
+			MyVec3 dir;			//+12bytes	
 			float padding;		//+4bytes
 		};
-		ConstantBufferTime cb_PerObject = {};
+		ObjectConstantBuffer cb_PerObject = {};
 		cb_PerObject.time = 1.0f;
 
-		ID3D11Buffer* pConstantBuffer_PixelShader;
+		ID3D11Buffer* pConstantBuffer;
 
 		D3D11_BUFFER_DESC cbPerObjectDesc = {};
 		cbPerObjectDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		cbPerObjectDesc.ByteWidth = sizeof(ConstantBufferTime);
+		cbPerObjectDesc.ByteWidth = sizeof(ObjectConstantBuffer);
 		cbPerObjectDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; //<-this gives the CPU permission to write to this buffer
 		cbPerObjectDesc.Usage = D3D11_USAGE_DYNAMIC; //<-this signals to d3d that we're going to be updating this buffer frequently
 		cbPerObjectDesc.MiscFlags = 0u;
@@ -525,9 +449,9 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		hr(pDevice->CreateBuffer(
 			&cbPerObjectDesc,					//const D3D11_BUFFER_DESC *pDesc,
 			&cbtime_subdata,					//const D3D11_SUBRESOURCE_DATA *pInitialData,
-			&pConstantBuffer_PixelShader		//ID3D11Buffer **ppBuffer) = 0;
+			&pConstantBuffer		//ID3D11Buffer **ppBuffer) = 0;
 		));
-		pDeviceContext->PSSetConstantBuffers(/*StartSlot*/ 0, /*NumBuffers*/ 1, &pConstantBuffer_PixelShader);
+		pDeviceContext->PSSetConstantBuffers(/*StartSlot*/ 0, /*NumBuffers*/ 1, &pConstantBuffer);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Message Queue and Game Loop
@@ -564,31 +488,48 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 				auto nowTimePoint = std::chrono::high_resolution_clock::now();
 				float runtimeSecs = std::chrono::duration<float>(nowTimePoint - startTimePoint).count();
-
-				//method 2: update constant buffer via Map() and Unmap()
 				cb_PerObject.time = runtimeSecs;
-				cb_PerObject.offset[0] = 0.f;
-				cb_PerObject.offset[1] = 0.f;
-				cb_PerObject.offset[2] = 0.f;
 
+				pDeviceContext->PSSetConstantBuffers(0u/*StartSlot*/, 1 /*numBuffers*/, &pConstantBuffer);
+				pDeviceContext->VSSetConstantBuffers(0u/*StartSlot*/, 1 /*numBuffers*/, &pConstantBuffer);
 
 				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
 
 				//draw triangle moving horizontally
 				cb_PerObject.offset[0] = 0.f;
-				cb_PerObject.offset[1] = 0.5f;
+				cb_PerObject.offset[1] = 0.50f;
 				cb_PerObject.offset[2] = 0.f;
-				cb_PerObject.dir[0] = 1.f;
-				cb_PerObject.dir[1] = 0.f;
-				cb_PerObject.dir[2] = 0.f;
-				pDeviceContext->Map(pConstantBuffer_PixelShader, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
+				cb_PerObject.dir.x = 1.f;
+				cb_PerObject.dir.y = 0.f;
+				cb_PerObject.dir.z = 0.f;
+				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
 				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
-				pDeviceContext->Unmap(pConstantBuffer_PixelShader, 0u/*Subresource*/);
+				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
 				pDeviceContext->Draw(3, 0);
 
-				//draw triangle moving vertically
+				//draw triangle moving vertically (notice we do not need to re-bind the constant buffer to the shader, we just need to update its data)
+				cb_PerObject.offset[0] = 0.f;
+				cb_PerObject.offset[1] = 0.0f;
+				cb_PerObject.offset[2] = 0.f;
+				cb_PerObject.dir.x = 0.f;
+				cb_PerObject.dir.y = 1.f;
+				cb_PerObject.dir.z = 0.f;
+				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
+				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
+				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
+				pDeviceContext->Draw(3, 0);
 
 				//draw triangle moving in depth
+				cb_PerObject.offset[0] = 0.25f;
+				cb_PerObject.offset[1] = -0.25f;
+				cb_PerObject.offset[2] = 0.f;
+				cb_PerObject.dir.x = 0.f;
+				cb_PerObject.dir.y = 0.f;
+				cb_PerObject.dir.z = 1.f;
+				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
+				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
+				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
+				pDeviceContext->Draw(3, 0);
 
 				pSwapChain->Present(0, 0);
 			}
@@ -609,10 +550,8 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		if (pPixelShader_ByteCodeBlob) pPixelShader_ByteCodeBlob->Release();
 		if (pPixelShader) pPixelShader->Release();
 		if (pVertexBuffer) pVertexBuffer->Release();
-		if (pIndexBuffer) pIndexBuffer->Release();
 		if (pInputLayout) pInputLayout->Release();
 		if (pConstantBuffer) pConstantBuffer->Release();
-		if (pConstantBuffer_PixelShader) pConstantBuffer_PixelShader->Release();
 
 		return 0;
 	}
