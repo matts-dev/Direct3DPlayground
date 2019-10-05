@@ -53,7 +53,10 @@
     <ClCompile Include="src\getting_started\hello_features\3.hello_constant_buffers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\getting_started\hello_features\hello_normalized_device_coordinates.cpp">
+    <ClCompile Include="src\getting_started\hello_features\4.hello_normalized_device_coordinates.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\getting_started\hello_features\5.hello_depth_buffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

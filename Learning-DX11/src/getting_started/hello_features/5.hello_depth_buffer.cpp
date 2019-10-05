@@ -180,6 +180,35 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			&pDeviceContext				//ID3D11DeviceContext** ppImmediateContext);
 		));
 
+		////////////////////////////////////////////////////////
+		// d3d11: Depth and Stencil buffer
+		////////////////////////////////////////////////////////
+		D3D11_TEXTURE2D_DESC depth_stencil_texture_desc;
+		depth_stencil_texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		depth_stencil_texture_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		depth_stencil_texture_desc.Usage = D3D11_USAGE_DEFAULT;
+		depth_stencil_texture_desc.Width = clientWidth;
+		depth_stencil_texture_desc.Height = clientHeight;
+		depth_stencil_texture_desc.ArraySize = 1u;				//number of textures in this array
+		depth_stencil_texture_desc.MipLevels = 1u;				//single mip
+		depth_stencil_texture_desc.SampleDesc.Count = 1;		//anti aliasing
+		depth_stencil_texture_desc.SampleDesc.Quality = 0;
+		depth_stencil_texture_desc.CPUAccessFlags = 0u;
+		depth_stencil_texture_desc.MiscFlags = 0u;
+
+		ID3D11Texture2D* pDepthStencilBufferTexture = nullptr;
+		hr(pDevice->CreateTexture2D(
+			&depth_stencil_texture_desc,	//const D3D11_TEXTURE2D_DESC *pDesc,
+			nullptr,						//const D3D11_SUBRESOURCE_DATA *pInitialData,
+			&pDepthStencilBufferTexture		//ID3D11Texture2D **ppTexture2D
+		));
+		
+		ID3D11DepthStencilView* pDepthStencilView = nullptr;
+		hr(pDevice->CreateDepthStencilView(
+			pDepthStencilBufferTexture,		//ID3D11Resource *pResource,
+			nullptr,						//const D3D11_DEPTH_STENCIL_VIEW_DESC *pDesc,
+			&pDepthStencilView				//ID3D11DepthStencilView **ppDepthStencilView
+		));
 
 		////////////////////////////////////////////////////////
 		// d3d11: Create the render target
@@ -200,10 +229,12 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 		if (pBackBufferTexture) { pBackBufferTexture->Release(); } //no longer needed
 
+//DEPTH/STENCIL
+//#NOTICE depth and stencil are set here!
 		pDeviceContext->OMSetRenderTargets(
 			1,						//UINT NumViews,
 			&pRenderTargetView,		//ID3D11RenderTargetView *const *ppRenderTargetViews,
-			nullptr					//ID3D11DepthStencilView *pDepthStencilView
+			pDepthStencilView		//ID3D11DepthStencilView *pDepthStencilView
 		);
 
 		////////////////////////////////////////////////////////
@@ -214,14 +245,13 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			struct vertexOutput 
 			{
 				float4 position : SV_POSITION;		//sv = system value, SV_POSITION is a built in semantic
-				float4 color : MY_COLOR;				
 			};
 
 			cbuffer ConstantBuffer_PerObject
 			{
 				float3 offset;	
-				float time;			
-				float3 dir;		
+				float time;		
+				float3 color;	
 			};
 
 			vertexOutput main_vertex(
@@ -231,11 +261,6 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				vertexOutput vs_out;
 				vs_out.position = float4(position, 1) + float4(offset, 0); 
 
-				//use time to sway the vertices
-				float4 timeBasedOffset = (1.01 * sin(time)) * float4(dir, 0.f);
-				vs_out.position += timeBasedOffset;
-
-				vs_out.color = float4(0,0,0,1); //float4(cbufferColor, 1); //#TODO clean this up; delete
 				return vs_out;
 			}
 		)";
@@ -246,22 +271,17 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			{
 				float3 offset;	
 				float time;			
-				float3 dir;		
+				float3 color;
 			};
 
 			float4 main_pixel(
-					float4 position:SV_POSITION,	//we can just specify the semantics, we don't need to redefine the output struct
-					float4 color:MY_COLOR			//
+					float4 position:SV_POSITION	//we can just specify the semantics, we don't need to redefine the output struct
 				) 
 				: SV_TARGET	// SV_TARGET is a semantic; return value semantics follow for the function signature.
 			{
-				float4 outColor = color;
+				float baseIntensity = 0.05f;
 
-				float baseIntensity = 0.05;
-
-				outColor.r = sin(time) + baseIntensity;
-				outColor.g = baseIntensity;
-				outColor.b = -sin(time) + baseIntensity;
+				float4 outColor = float4(color, 1.0f);
 
 				return outColor;
 			}
@@ -410,6 +430,10 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		viewport.TopLeftY = 0;
 		viewport.Width = static_cast<float>(clientWidth);
 		viewport.Height = static_cast<float>(clientHeight);
+//DEPTH/STENCIL
+//#NOTICE we define our depth in the viewport too^^
+		viewport.MaxDepth = 1.0;
+		viewport.MinDepth = 0.0;
 		pDeviceContext->RSSetViewports(1, &viewport);
 
 
@@ -428,7 +452,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		{
 			float offset[3];	//+12bytes
 			float time;			//+4bytes
-			MyVec3 dir;			//+12bytes	
+			MyVec3 color;			//+12bytes	
 			float padding;		//+4bytes
 		};
 		ObjectConstantBuffer cb_PerObject = {};
@@ -449,7 +473,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		hr(pDevice->CreateBuffer(
 			&cbPerObjectDesc,					//const D3D11_BUFFER_DESC *pDesc,
 			&cbtime_subdata,					//const D3D11_SUBRESOURCE_DATA *pInitialData,
-			&pConstantBuffer		//ID3D11Buffer **ppBuffer) = 0;
+			&pConstantBuffer					//ID3D11Buffer **ppBuffer) = 0;
 		));
 		pDeviceContext->PSSetConstantBuffers(/*StartSlot*/ 0, /*NumBuffers*/ 1, &pConstantBuffer);
 
@@ -470,17 +494,21 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				//no message, do gameloop stuff
 				float clearColor[] = { 0,0,0,1 };
 				pDeviceContext->ClearRenderTargetView(pRenderTargetView, clearColor);
-				pDeviceContext->OMSetRenderTargets(1, &pRenderTargetView, /*depth_stencil*/ nullptr);
 
-				//In real applications we will be changing the objects currently bound to pipeline; let's rebind everything we need here to show what rendering a specified vertex buffer would look like
-				//we did this while creating, check out the first time we called these functions for the arguments
-				//pDeviceContext->IASetVertexBuffers(0, 1, &pVertexBuffer, &vertexStride, &vertexOffset);
-				//pDeviceContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0u);
-				//pDeviceContext->IASetInputLayout(pInputLayout);
-				//pDeviceContext->IASetPrimitiveTopology(/*D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST*/ D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-				//pDeviceContext->VSSetShader(pVertShader, nullptr, 0);
-				//pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
-				//pDeviceContext->RSSetViewports(1, &viewport);
+//DEPTH/STENCIL
+//#NOTICE you have to clear the depth and stencil separately from the color target.
+				pDeviceContext->ClearDepthStencilView(
+					pDepthStencilView,							//ID3D11DepthStencilView *pDepthStencilView,
+					D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,	//UINT ClearFlags,
+					1.0f,										//FLOAT Depth,
+					0u											//UINT8 Stencil
+				);
+
+
+//DEPTH/STENCIL
+//#NOTICE be sure to apply the depth/stencil view to the pipeline render target!
+				//pDeviceContext->OMSetRenderTargets(1, &pRenderTargetView, /*depth_stencil*/ nullptr); //uncomment not bind depth buffer, depth will be ignored
+				pDeviceContext->OMSetRenderTargets(1, &pRenderTargetView, pDepthStencilView);			//uncomment to view depth buffer in action!
 
 				////////////////////////////////////////////////////////
 				// Update Constant Buffers
@@ -495,41 +523,42 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
 
-				//draw triangle moving horizontally
-				cb_PerObject.offset[0] = 0.f;
-				cb_PerObject.offset[1] = 0.50f;
-				cb_PerObject.offset[2] = 0.f;
-				cb_PerObject.dir.x = 1.f;
-				cb_PerObject.dir.y = 0.f;
-				cb_PerObject.dir.z = 0.f;
+				//closest depth
+				cb_PerObject.offset[0] = 0.25f;
+				cb_PerObject.offset[1] = 0.25f;
+				cb_PerObject.offset[2] = 0.1f; //<------------------------------depth
+				cb_PerObject.color.x = 1.0;
+				cb_PerObject.color.y = 0.0f;
+				cb_PerObject.color.z = 0.0f;
 				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
 				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
 				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
 				pDeviceContext->Draw(3, 0);
 
-				//draw triangle moving vertically (notice we do not need to re-bind the constant buffer to the shader, we just need to update its data)
+				//furthest depth
+				cb_PerObject.offset[0] = -0.25f;
+				cb_PerObject.offset[1] = -0.25f;
+				cb_PerObject.offset[2] = 0.9f; //<------------------------------depth
+				cb_PerObject.color.x = 0.0;
+				cb_PerObject.color.y = 0.0f;
+				cb_PerObject.color.z = 1.0f;
+				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
+				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
+				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
+				pDeviceContext->Draw(3, 0);
+
+				//middle depth
 				cb_PerObject.offset[0] = 0.f;
 				cb_PerObject.offset[1] = 0.0f;
-				cb_PerObject.offset[2] = 0.f;
-				cb_PerObject.dir.x = 0.f;
-				cb_PerObject.dir.y = 1.f;
-				cb_PerObject.dir.z = 0.f;
+				cb_PerObject.offset[2] = 0.5f; //<------------------------------depth
+				cb_PerObject.color.x = 0.0;
+				cb_PerObject.color.y = 1.0f;
+				cb_PerObject.color.z = 0.0f;
 				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
 				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
 				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
 				pDeviceContext->Draw(3, 0);
 
-				//draw triangle moving in depth
-				cb_PerObject.offset[0] = 0.25f;
-				cb_PerObject.offset[1] = -0.25f;
-				cb_PerObject.offset[2] = 0.f;
-				cb_PerObject.dir.x = 0.f;
-				cb_PerObject.dir.y = 0.f;
-				cb_PerObject.dir.z = 1.f;
-				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
-				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
-				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
-				pDeviceContext->Draw(3, 0);
 
 				pSwapChain->Present(0, 0);
 			}
@@ -552,6 +581,8 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		if (pVertexBuffer) pVertexBuffer->Release();
 		if (pInputLayout) pInputLayout->Release();
 		if (pConstantBuffer) pConstantBuffer->Release();
+		if (pDepthStencilBufferTexture) pDepthStencilBufferTexture->Release();
+		if (pDepthStencilView) pDepthStencilView->Release();
 
 		return 0;
 	}

@@ -162,7 +162,8 @@
     <ClCompile Include="src\getting_started\hello_features\2.hello_indexed_triangle.cpp" />
     <ClCompile Include="src\getting_started\hello_features\0.hello_triangle.cpp" />
     <ClCompile Include="src\getting_started\hello_features\1.hello_triangle_errorchecking.cpp" />
-    <ClCompile Include="src\getting_started\hello_features\hello_normalized_device_coordinates.cpp" />
+    <ClCompile Include="src\getting_started\hello_features\4.hello_normalized_device_coordinates.cpp" />
+    <ClCompile Include="src\getting_started\hello_features\5.hello_depth_buffer.cpp" />
     <ClCompile Include="src\window_nonblocking_msg_loop.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
