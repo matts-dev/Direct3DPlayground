@@ -218,9 +218,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 			cbuffer ConstantBuffer_PerObject
 			{
-				float3 offset;	
 				float time;			
-				float3 dir;		
 			};
 
 			vertexOutput main_vertex(
@@ -232,30 +230,17 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				vs_out.position = float4(position, 1);
 
 				//only change w to observe the effects
-				vs_out.position.w = abs(sin(time)) * 3 + 1.0f; //cap at 1.0f so we only divide by on range [1, X:X>1]
+				//cap at 1.0f so we only divide by on range [1, X:X>1]
+				vs_out.position.w = abs(sin(time)) * 3 + 1.0f;
 
 				return vs_out;
 			}
 		)";
 
 		const char* const pixelShaderHSLS = R"(
-			
-			cbuffer ConstantBuffer_PerObject
+			float4 main_pixel( float4 position:SV_POSITION) : SV_TARGET	
 			{
-				float3 offset;	
-				float time;			
-				float3 dir;		
-			};
-
-			float4 main_pixel(
-					float4 position:SV_POSITION	//we can just specify the semantics, we don't need to redefine the output struct
-				) 
-				: SV_TARGET	// SV_TARGET is a semantic; return value semantics follow for the function signature.
-			{
-				float baseIntensity = 0.05f;
-
 				float4 outColor = float4(1.0f, 0.83f, 0.0f, 1.0f);
-
 				return outColor;
 			}
 		)";
@@ -419,10 +404,8 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 		struct ObjectConstantBuffer
 		{
-			float offset[3];	//+12bytes
 			float time;			//+4bytes
-			MyVec3 dir;			//+12bytes	
-			float padding;		//+4bytes
+			float padding[3];	//+12bytes
 		};
 		ObjectConstantBuffer cb_PerObject = {};
 		cb_PerObject.time = 1.0f;
@@ -478,18 +461,10 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
 
-				//#TODO remove the offset from constant buffer if it isn't used.
-
-				//draw triangle moving horizontally
-				cb_PerObject.offset[0] = 0.f;
-				cb_PerObject.offset[1] = 0.50f;
-				cb_PerObject.offset[2] = 0.f;
-				cb_PerObject.dir.x = 1.f;
-				cb_PerObject.dir.y = 0.f;
-				cb_PerObject.dir.z = 0.f;
 				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
 				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
 				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
+
 				pDeviceContext->Draw(3, 0);
 
 				pSwapChain->Present(0, 0);
