@@ -1,4 +1,5 @@
-//https://docs.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-depth-stencil#two-sided-stencil
+//diff with hello_constant_buffers
+
 
 //window includes
 #include"stdafx.h"	//windows PCH
@@ -179,85 +180,6 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			&pDeviceContext				//ID3D11DeviceContext** ppImmediateContext);
 		));
 
-		////////////////////////////////////////////////////////
-		// d3d11: Depth and Stencil buffer
-		////////////////////////////////////////////////////////
-		D3D11_TEXTURE2D_DESC depth_stencil_texture_desc;
-		depth_stencil_texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-		depth_stencil_texture_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		depth_stencil_texture_desc.Usage = D3D11_USAGE_DEFAULT;
-		depth_stencil_texture_desc.Width = clientWidth;
-		depth_stencil_texture_desc.Height = clientHeight;
-		depth_stencil_texture_desc.ArraySize = 1u;				//number of textures in this array
-		depth_stencil_texture_desc.MipLevels = 1u;				//single mip
-		depth_stencil_texture_desc.SampleDesc.Count = 1;		//anti aliasing
-		depth_stencil_texture_desc.SampleDesc.Quality = 0;
-		depth_stencil_texture_desc.CPUAccessFlags = 0u;
-		depth_stencil_texture_desc.MiscFlags = 0u;
-
-		ID3D11Texture2D* pDepthStencilBufferTexture = nullptr;
-		hr(pDevice->CreateTexture2D(
-			&depth_stencil_texture_desc,	//const D3D11_TEXTURE2D_DESC *pDesc,
-			nullptr,						//const D3D11_SUBRESOURCE_DATA *pInitialData,
-			&pDepthStencilBufferTexture		//ID3D11Texture2D **ppTexture2D
-		));
-
-		ID3D11DepthStencilView* pDepthStencilView = nullptr;
-		hr(pDevice->CreateDepthStencilView(
-			pDepthStencilBufferTexture,		//ID3D11Resource *pResource,
-			nullptr,						//const D3D11_DEPTH_STENCIL_VIEW_DESC *pDesc,
-			&pDepthStencilView				//ID3D11DepthStencilView **ppDepthStencilView
-		));
-
-//STENCIL SETUP
-//>>>>>>
-		////////////////////////////////////////////////////////
-		// Depth and Stencil State
-		////////////////////////////////////////////////////////
-		D3D11_DEPTH_STENCIL_DESC stencilPass_depthStencilDesc = {};
-
-		//configure depth buffer
-		stencilPass_depthStencilDesc.DepthEnable = false;
-		stencilPass_depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-		stencilPass_depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
-
-		//configure stencil write/read
-		stencilPass_depthStencilDesc.StencilEnable = true;
-		stencilPass_depthStencilDesc.StencilReadMask = 0xff;
-		stencilPass_depthStencilDesc.StencilWriteMask = 0xff;
-
-		//configure front-facing stencil buffer
-		stencilPass_depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-		stencilPass_depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-		stencilPass_depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
-		stencilPass_depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
-		stencilPass_depthStencilDesc.BackFace = stencilPass_depthStencilDesc.FrontFace; //copy what we set up for the front face.
-
-		ID3D11DepthStencilState* pDSState_stencilPass;
-		hr(pDevice->CreateDepthStencilState(
-			&stencilPass_depthStencilDesc,	//const D3D10_DEPTH_STENCIL_DESC *pDepthStencilDesc,
-			&pDSState_stencilPass		    //ID3D10DepthStencilState **ppDepthStencilState
-		));
-
-		//create the depth/stencil state for when we're actually rendering
-		D3D11_DEPTH_STENCIL_DESC renderPass_depthStencilDesc = {};
-		renderPass_depthStencilDesc.DepthEnable = true;
-		renderPass_depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-		renderPass_depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
-
-		renderPass_depthStencilDesc.StencilEnable = true;
-		renderPass_depthStencilDesc.StencilWriteMask = 0; //disable writing anything during our normal pass
-		renderPass_depthStencilDesc.StencilReadMask = 0xff; //read all bits of the stencil buffer
-
-		renderPass_depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_NOT_EQUAL;
-		renderPass_depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-		renderPass_depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
-		renderPass_depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-
-		renderPass_depthStencilDesc.BackFace = renderPass_depthStencilDesc.FrontFace;
-
-		ID3D11DepthStencilState* pDSState_renderPass;
-		hr(pDevice->CreateDepthStencilState(&renderPass_depthStencilDesc, &pDSState_renderPass));
 
 		////////////////////////////////////////////////////////
 		// d3d11: Create the render target
@@ -278,12 +200,10 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 		if (pBackBufferTexture) { pBackBufferTexture->Release(); } //no longer needed
 
-//DEPTH/STENCIL
-//#NOTICE depth and stencil are set here!
 		pDeviceContext->OMSetRenderTargets(
 			1,						//UINT NumViews,
 			&pRenderTargetView,		//ID3D11RenderTargetView *const *ppRenderTargetViews,
-			pDepthStencilView		//ID3D11DepthStencilView *pDepthStencilView
+			nullptr					//ID3D11DepthStencilView *pDepthStencilView
 		);
 
 		////////////////////////////////////////////////////////
@@ -299,8 +219,8 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			cbuffer ConstantBuffer_PerObject
 			{
 				float3 offset;	
-				float time;		
-				float3 color;	
+				float time;			
+				float3 dir;		
 			};
 
 			vertexOutput main_vertex(
@@ -308,7 +228,11 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				)
 			{
 				vertexOutput vs_out;
-				vs_out.position = float4(position, 1) + float4(offset, 0); 
+
+				vs_out.position = float4(position, 1);
+
+				//only change w to observe the effects
+				vs_out.position.w = abs(sin(time)) * 3 + 1.0f; //cap at 1.0f so we only divide by on range [1, X:X>1]
 
 				return vs_out;
 			}
@@ -320,7 +244,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			{
 				float3 offset;	
 				float time;			
-				float3 color;
+				float3 dir;		
 			};
 
 			float4 main_pixel(
@@ -330,7 +254,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			{
 				float baseIntensity = 0.05f;
 
-				float4 outColor = float4(color, 1.0f);
+				float4 outColor = float4(1.0f, 0.83f, 0.0f, 1.0f);
 
 				return outColor;
 			}
@@ -398,45 +322,6 @@ namespace	//anonymous namespace makes everything within it essentially static.
 			nullptr,		//ID3D11ClassInstance *const *ppClassInstances,
 			0u				//UINT NumClassInstances
 		);
-
-
-		////////////////////////////////////////////////////////
-		// Stencil Write Shader
-		////////////////////////////////////////////////////////
-		const char* const stencilWrite_pixelShaderHSLS = R"(
-			cbuffer ConstantBuffer_PerObject
-			{
-				float3 offset;	
-				float time;			
-				float3 color;
-			};
-
-			void main_pixel(float4 position:SV_POSITION)
-			{
-				//do nothing, just write to the stencil buffer.
-			}
-		)";
-		ID3DBlob* stencilWrite_PSBlob = nullptr;
-		hr_error(D3DCompile(
-			stencilWrite_pixelShaderHSLS,			//LPCVOID pSrcData,
-			strlen(stencilWrite_pixelShaderHSLS),	//SIZE_T SrcDataSize,
-			nullptr,								//LPCSTR pSourceName,
-			nullptr,						//CONST D3D_SHADER_MACRO* pDefines,
-			nullptr,						//ID3DInclude* pInclude,
-			"main_pixel",					//LPCSTR pEntrypoint,
-			"ps_5_0",						//LPCSTR pTarget,
-			D3DCOMPILE_DEBUG,				//UINT Flags1,		//pass 0 if you don't want debugging information
-			0u,								//UINT Flags2,
-			&stencilWrite_PSBlob,		//ID3DBlob** ppCode,
-			&pErrorBlob						//ID3DBlob** ppErrorMsgs
-		));
-		ID3D11PixelShader* pStencilWritePixelShader;
-		hr(pDevice->CreatePixelShader(
-			stencilWrite_PSBlob->GetBufferPointer(),	//const void *pShaderBytecode,
-			stencilWrite_PSBlob->GetBufferSize(),		//SIZE_T BytecodeLength,
-			nullptr,					//ID3D11ClassLinkage *pClassLinkage,
-			&pStencilWritePixelShader	//ID3D11PixelShader **ppPixelShader) = 0;
-		));
 
 		////////////////////////////////////////////////////////
 		// Creating a vertex buffer
@@ -518,10 +403,6 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		viewport.TopLeftY = 0;
 		viewport.Width = static_cast<float>(clientWidth);
 		viewport.Height = static_cast<float>(clientHeight);
-		//DEPTH/STENCIL
-		//#NOTICE we define our depth in the viewport too^^
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
 		pDeviceContext->RSSetViewports(1, &viewport);
 
 
@@ -540,7 +421,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		{
 			float offset[3];	//+12bytes
 			float time;			//+4bytes
-			MyVec3 color;			//+12bytes	
+			MyVec3 dir;			//+12bytes	
 			float padding;		//+4bytes
 		};
 		ObjectConstantBuffer cb_PerObject = {};
@@ -561,7 +442,7 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		hr(pDevice->CreateBuffer(
 			&cbPerObjectDesc,					//const D3D11_BUFFER_DESC *pDesc,
 			&cbtime_subdata,					//const D3D11_SUBRESOURCE_DATA *pInitialData,
-			&pConstantBuffer					//ID3D11Buffer **ppBuffer) = 0;
+			&pConstantBuffer		//ID3D11Buffer **ppBuffer) = 0;
 		));
 		pDeviceContext->PSSetConstantBuffers(/*StartSlot*/ 0, /*NumBuffers*/ 1, &pConstantBuffer);
 
@@ -582,16 +463,11 @@ namespace	//anonymous namespace makes everything within it essentially static.
 				//no message, do gameloop stuff
 				float clearColor[] = { 0,0,0,1 };
 				pDeviceContext->ClearRenderTargetView(pRenderTargetView, clearColor);
+				pDeviceContext->OMSetRenderTargets(1, &pRenderTargetView, /*depth_stencil*/ nullptr);
 
-				//DEPTH/STENCIL
-				pDeviceContext->ClearDepthStencilView(
-					pDepthStencilView,							//ID3D11DepthStencilView *pDepthStencilView,
-					D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,	//UINT ClearFlags,
-					1.0f,										//FLOAT Depth,
-					0u											//UINT8 Stencil
-				);
-
-				pDeviceContext->OMSetRenderTargets(1, &pRenderTargetView, pDepthStencilView);
+				////////////////////////////////////////////////////////
+				// Update Constant Buffers
+				////////////////////////////////////////////////////////
 
 				auto nowTimePoint = std::chrono::high_resolution_clock::now();
 				float runtimeSecs = std::chrono::duration<float>(nowTimePoint - startTimePoint).count();
@@ -602,35 +478,18 @@ namespace	//anonymous namespace makes everything within it essentially static.
 
 				D3D11_MAPPED_SUBRESOURCE mappedPixelCB = {};
 
-				//write to stencil buffer
-				cb_PerObject.offset[0] = 0.0f;
-				cb_PerObject.offset[1] = -0.25f;
-				cb_PerObject.offset[2] = 0.5f; 
-				cb_PerObject.color.x = 0.0;
-				cb_PerObject.color.y = 0.0f;
-				cb_PerObject.color.z = 1.0f;
+				//#TODO remove the offset from constant buffer if it isn't used.
+
+				//draw triangle moving horizontally
+				cb_PerObject.offset[0] = 0.f;
+				cb_PerObject.offset[1] = 0.50f;
+				cb_PerObject.offset[2] = 0.f;
+				cb_PerObject.dir.x = 1.f;
+				cb_PerObject.dir.y = 0.f;
+				cb_PerObject.dir.z = 0.f;
 				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
 				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
 				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
-
-				UINT StencilWriteValueRef = 0xDEAD; //making an obvious hex value
-				pDeviceContext->OMSetDepthStencilState(pDSState_stencilPass, StencilWriteValueRef);
-				pDeviceContext->PSSetShader(pStencilWritePixelShader, nullptr, 0u);
-				pDeviceContext->Draw(3, 0);
-
-				//draw actual object
-				cb_PerObject.offset[0] = 0.0f;
-				cb_PerObject.offset[1] = 0.0f;
-				cb_PerObject.offset[2] = 0.0f; 
-				cb_PerObject.color.x = 1.0;
-				cb_PerObject.color.y = 0.0f;
-				cb_PerObject.color.z = 0.0f;
-				pDeviceContext->Map(pConstantBuffer, 0u/*Subresource*/, D3D11_MAP_WRITE_DISCARD, 0u, &mappedPixelCB);
-				std::memcpy(mappedPixelCB.pData, &cb_PerObject, sizeof(ObjectConstantBuffer)); //copy to pData from our struct
-				pDeviceContext->Unmap(pConstantBuffer, 0u/*Subresource*/);
-
-				pDeviceContext->OMSetDepthStencilState(pDSState_renderPass, StencilWriteValueRef);
-				pDeviceContext->PSSetShader(pPixelShader, nullptr, 0u);
 				pDeviceContext->Draw(3, 0);
 
 				pSwapChain->Present(0, 0);
@@ -654,19 +513,13 @@ namespace	//anonymous namespace makes everything within it essentially static.
 		if (pVertexBuffer) pVertexBuffer->Release();
 		if (pInputLayout) pInputLayout->Release();
 		if (pConstantBuffer) pConstantBuffer->Release();
-		if (pDepthStencilBufferTexture) pDepthStencilBufferTexture->Release();
-		if (pDepthStencilView) pDepthStencilView->Release();
-		if (pDSState_stencilPass) pDSState_stencilPass->Release();
-		if (pDSState_renderPass) pDSState_renderPass->Release();
-		if (stencilWrite_PSBlob) stencilWrite_PSBlob->Release();
-		if (pStencilWritePixelShader) pStencilWritePixelShader->Release();
 
 		return 0;
 	}
 
 }
 
-//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
-//{
-//	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
-//}
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nShowCmd)
+{
+	return TrueWinMain(hInstance, hPrevInstance, pCmdLine, nShowCmd);
+}

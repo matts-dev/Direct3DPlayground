@@ -62,6 +62,9 @@
     <ClCompile Include="src\getting_started\hello_features\6.hello_stencil_buffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\getting_started\hello_features\hello_divide_by_w.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Learning-DX11.ico">

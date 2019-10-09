@@ -165,6 +165,7 @@
     <ClCompile Include="src\getting_started\hello_features\4.hello_normalized_device_coordinates.cpp" />
     <ClCompile Include="src\getting_started\hello_features\5.hello_depth_buffer.cpp" />
     <ClCompile Include="src\getting_started\hello_features\6.hello_stencil_buffer.cpp" />
+    <ClCompile Include="src\getting_started\hello_features\hello_divide_by_w.cpp" />
     <ClCompile Include="src\window_nonblocking_msg_loop.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
